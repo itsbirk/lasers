@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lazer Maze</title>
+
+
+    <style type="text/css">
+
+
+h1 {
+
+style: font-size:60px;
+color: red;
+font-weight: bold;
+}
+
+     .button {
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    padding: 15px 32px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+}
+
+.button1 {border-radius: 8px;}
+
+.button2 {
+border-radius: 8px;
+background-color: gold
+}
+
+.button3 {border-radius: 8px;
+background-color: #f44336;} /* Red */
+
+.button4 {
+border-radius: 8px;
+background-color: blue
+}
+
+.button5 {
+border-radius: 8px;
+background-color: blue
+
+
+}
+
+
+</style>
+</head>
+
+<body style="background-color:black;">
+
+
+<div align="center">
+    <h1>Laser Maze</h1>
+    <p id="demo"></p>
+</div>
+<div align="center">
+    <button onClick="drawGridEasy();" class = "button button1">Easy </button>
+    <button onClick="drawGridMedium();" class = "button button2">Medium </button>
+    <button onClick="drawGridHard();" class = "button button3">Hard </button>
+</div>
+
+<div align="center">
+    <canvas id="board" width="500" height="500" style="border:1px solid #000000;">
+    </canvas>
+</div>
+<div align="center">
+    <button onClick="history.go(0)" class = "button button4">Reset Board </button>
+    <button onclick="fire()" class = "button button5">Fire Laser </button>
+
+    <div>
+        <input checked="checked" Id="add" value="0" type="radio" name="mirror"><label for="add" style="color:white;">Add Mirror</label></input>
+        <input Id="rotate" value="1" type="radio" name="mirror"><label for="rotate" style="color:white;">Rotate Mirror</label></input>
+        <input Id="delete" value="2" type="radio" name="mirror"><label for="delete" style="color:white;">Delete Mirror</label></input>
+    </div>
+
+</div>
+
+
+
+</body>
+
+<script>
+
+    //Declare variables needed for different functions.
+    //canvas and context are used for drawing.
+
+    var canvas;
+    var context;
+    var boxWidth;
+    var boxHeight;
+    var rotate = 0;
+    var rotate1 = 0;
+    var state = 1;
+     var dx = 0;  // global
+    var dy = -1;	// global default movement is up
+    var xx, yy;	// global
+
+    var position = 0;
+
+
+    var radios = document.getElementsByName('mirror');
+
+
+//Two 2D arrays, one for the board and one for the laser that will overlap with the board.
+    var board = [
+        ["diamond",0,0,0,0],
+        [0,0,0,0,0],
+        [0,0,0,0,0],
+        [0,0,0,0,0],
+        [0,0,0,0,"circle"]
+    ]
+    var boardLaser = [
+        [0,0,0,0,0],
+        [0,0,0,0,0],
+        [0,0,0,0,0],
+        [0,0,0,0,0],
+        [0,0,0,0,0]
+    ]
+
+    console.log(board);
+
+    //lasers array lists objects that draw different shapes of the laser.
+    var lasers = new Array();
+    lasers[0] = {type: "vertical"};
+    lasers[1] = {type: "horizontal"};
+    lasers[2] = {type: "upleft"};
+    lasers[3] = {type: "upright"};
+    lasers[4] = {type: "downright"};
+    lasers[5] = {type: "downleft"};
+
+
+    //objects array contains the different types of objects we can put on the board.
+    var objects = new Array("diamond", "mirror1", "block");
+    objects[0] = {type: "diamond"};
+    objects[1] = {type: "mirror1", rotation: 0}; //have to make for each mirror
+    objects[2] = {type: "block"};
+    objects[3] = {type: "mirror2", rotation: 0};
+    objects[6] = {type: "reddiamond"};
+    objects[5] = {type: "circle"};
+    objects[7] = {type: "triangle"};
+    board[0][0] = objects[0];
+    board[4][4] = objects[5];
+
+
+//onload function draws the board and sets boxWidth and boxHeight
+    window.onload = function(){
+        var load = 0;
+        canvas = document.getElementById("board");
+        canvas.addEventListener("mouseup", mouseuplistener, false);
+
+        context = canvas.getContext("2d");
+
+        drawGrid(500, 500);
+        boxWidth = canvas.width / 5;
+        boxHeight = canvas.height / 5;
+    }
+
+
+//drawGrid function is called after each click and places objects on the board depending on user input and level.
+   var drawGrid = function(w, h) {
+        context.save();
+        context.clearRect(0, 0, w, h);
+        context.strokeStyle = 'silver';
+        context.beginPath();
+        context.rect(0, 0, 500, 500);
+        context.fillStyle = "grey";
+        context.fill();
+
+
+        for (x = 0; x <= w; x += 100) {
+            for (y = 0; y <= h; y += 100) {
+                context.moveTo(x, 0);
+                context.lineTo(x, h);
+                context.stroke();
+                context.moveTo(0, y);
+                context.lineTo(w, y);
+                context.stroke();
+            }
+        }
+        context.restore();
+
+        for (i = 0; i < board.length; i++) {
+            for (j = 0; j < board.length; j++) {
+                if (board[i][j].type == 'diamond') {
+                    drawDiamond(context, i*100 + 50, j*100 + 0, 75, 100);
+
+                }
+                else if(board[i][j].type == 'reddiamond') {
+                    drawRedDiamond(context, i*100 + 50, j*100 + 0, 75, 100);
+                }
+                else if (board[i][j].type == 'mirror1') {
+                    rotateMirror(i, j, board[i][j]);
+                }
+                else if (board[i][j].type == 'mirror2') {
+                    rotateMirror(i, j, board[i][j]);
+                }
+                else if (board[i][j].type == 'circle') {
+                drawCircle(i, j);
+                }
+                else if (board[i][j].type == 'triangle') {
+                    drawTriangle(context, x, y, 75, 100)
+                }
+                else if (board[i][j].type == 'block') {
+                    drawBlock(i, j);
+                }
+                else if (board[i][j] == 0) {
+                    deleteMirror(i, j);
+                }
+
+            }
+        }
+        for(i = 0; i < boardLaser.length; i++) {
+            for(j = 0; j < boardLaser.length; j++) {
+                if(boardLaser[i][j].type == 'vertical') {
+                    drawLaserVert(i, j);
+                }
+                else if(boardLaser[i][j].type == 'horizontal') {
+                    drawLaserHori(i, j);
+                }
+                else if(boardLaser[i][j].type == 'upright') {
+                    drawLaserUpRight(i,j);
+                }
+                else if(boardLaser[i][j].type == 'downright') {
+                    drawLaserDownRight(i,j);
+                }
+                else if(boardLaser[i][j].type == 'upleft') {
+                    drawLaserUpLeft(i,j);
+                }
+                else if(boardLaser[i][j].type == 'downleft') {
+                    drawLaserDownLeft(i,j);
+                }
+
+            }
+
+        }
+   }
+
+   function winner() {
+        alert("Congratulations! You finished the level!");
+        return;
+   }
+
+    //Draws all the different possible laser positions
+   function drawLaserVert(i, j) {
+        x = i * 100 + 50;
+        y = j * 100
+
+        context.strokeStyle = 'red';
+        context.beginPath();
+        context.moveTo(x,y);
+        context.lineTo(x, y + 100);
+        context.stroke();
+
+   }
+
+   function drawLaserHori(i, j) {
+        x = i * 100;
+        y = j * 100 + 50
+
+        context.beginPath();
+        context.moveTo(x,y);
+        context.lineTo(x + 100, y);
+        context.stroke();
+
+   }
+
+   function drawLaserUpRight(i,j) {
+        x = i * 100 + 50;
+        y = j * 100;
+
+        context.beginPath();
+        context.moveTo(x,y + 100);
+        context.lineTo(x, y + 50);
+        context.lineTo(x + 50, y + 50);
+        context.stroke();
+
+   }
+   function drawLaserDownRight(i,j) {
+        x = i * 100 + 50;
+        y = j * 100;
+
+        context.beginPath();
+        context.moveTo(x,y);
+        context.lineTo(x, y + 50);
+        context.lineTo(x + 50, y + 50);
+        context.stroke();
+   }
+
+   function drawLaserUpLeft(i,j) {
+        x = i * 100 + 50;
+        y = j * 100;
+
+        context.beginPath();
+        context.moveTo(x,y + 100);
+        context.lineTo(x, y + 50);
+        context.lineTo(x - 50, y + 50);
+        context.stroke();
+
+   }
+
+   function drawLaserDownLeft(i,j) {
+        x = i * 100 + 50;
+        y = j * 100;
+
+        context.beginPath();
+        context.moveTo(x, y);
+        context.lineTo(x, y + 50);
+        context.lineTo(x - 50, y + 50);
+        context.stroke();
+
+   }
+
+       // Call with your fire button
+    function fire() {
+        console.log('fire()')
+        xx = 4;	// starting position of circle
+        yy = 4;	// starting position of circle
+        boardLaser[xx][yy] = lasers[0];
+        window.setTimeout(animateLaser,95);  // schedule animateLaser() to be called after 300 ms
+    }
+
+        //This function checks the board in the direction that the laser is traveling and changes it based on how it hits the mirror
+  function animateLaser() {
+       console.log("animateLaser()")
+       console.log("xx + dx = " + xx + ", " + dx);
+       console.log("yy + dy = " + yy + ", " + dy);
+       if (xx + dx > 4 || xx + dx < 0 || yy + dy > 4 || yy + dy < 0) {
+           drawGrid(500, 500);
+           return;
+       }
+
+       if (board[xx + dx][yy + dy] == 0 && dx == 0) { // is empty
+           boardLaser[xx + dx][yy + dy] = lasers[0];
+            xx += dx;
+            yy += dy;
+       }
+       else if(board[xx + dx][yy + dy] == 0 && dy == 0) {
+           boardLaser[xx + dx][yy + dy] = lasers[1];
+            xx += dx;
+            yy += dy;
+       }
+       else if(board[xx + dx][yy + dy].type == 'diamond') {
+           board[xx + dx][yy + dy].type = 'reddiamond';
+       }
+       else if (board[xx + dx][yy + dy].type == 'block') {  // change direction
+           if (dx == 0) dy = -1 * dy;
+           else if (dy == 0) dx = -1 * dx;
+       }
+       else if (board[xx + dx][yy + dy].type == 'mirror1' || board[xx + dx][yy + dy].type == 'mirror2') {
+           var rot = board[xx + dx][yy + dy].rotation;
+           // laser moving up
+           if (dy == -1 && (rot == 0 || rot == 1)) {  // hit side of mirror
+               dy = -1 * dy;
+           }
+           else if (dy == -1 && rot == 2) { // hits diagonal
+               boardLaser[xx + dx][yy + dy] = lasers[2];
+               yy += dy;
+               dy = 0;
+               dx = -1;
+           }
+           else if (dy == -1 && rot == 3) {    // hits diagonal
+               boardLaser[xx + dx][yy + dy] = lasers[3];
+               yy += dy;
+               dy = 0;
+               dx = 1;
+           }
+           else if (dy == 1 && rot == 0) {  // laser moving down
+               boardLaser[xx + dx][yy + dy] = lasers[4];
+               yy += dy;
+               dy = 0;
+               dx = 1;
+           }
+           else if (dy == 1 && rot == 1) {
+               boardLaser[xx + dx][yy + dy] = lasers[5];
+               yy += dy;
+               dy = 0;
+               dx = -1;
+           }
+           else if (dy == 1 && (rot == 2 || rot == 3)) {
+               dy = -1 * dy;
+           }
+           else if (dx == 1 && (rot == 0 || rot == 3)) {
+               dx = -1 * dx;
+           }
+           else if (dx == 1 && rot == 1) {
+               boardLaser[xx + dx][yy + dy] = lasers[5];
+               xx += dx;
+               dx = 0;
+               dy = -1;
+           }
+           else if (dx == 1 && rot == 2) {
+               boardLaser[xx + dx][yy + dy] = lasers[2];
+               xx += dx;
+               dx = 0;
+               dy = 1;
+           }
+           else if (dx == -1 && rot == 0) {
+               boardLaser[xx + dx][yy + dy] = lasers[4];
+               xx += dx;
+               dx = 0;
+               dy = -1;
+           }
+           else if (dx == -1 && rot == 3) {
+               boardLaser[xx + dx][yy + dy] = lasers[3];
+               xx += dx;
+               dx = 0;
+               dy = 1;
+           }
+           else if (dx == -1 && (rot == 1 || rot == 2)) {
+               dx = -1 * dx;
+           }
+       }
+
+
+       drawGrid(500, 500);
+       window.setTimeout(animateLaser, 95)
+   }
+
+ function drawCircle(i, j) {
+    var canvas = document.getElementById('circle');
+    i = i * 100;
+    j = j * 100;
+
+    context.beginPath();
+    context.moveTo(i + 18, j + 100);
+    context.lineTo(i + 50, j + 70);
+    context.lineTo(i + 82, j + 100);
+    context.fillStyle = "red";
+    context.fill();
+    context.restore();
+}
+
+//drawTriangle function draws the shape of the mirror object
+ function drawTriangle(context, x, y, width, height) {
+   x = x * 100;
+   x = x * 100;
+   context.save();
+   context.strokeStyle = 'red';
+   context.beginPath();
+   context.moveTo(x, y);
+
+   // top left edge
+   context.lineTo(x - width / 2, y +  height / 2);
+
+   // bottom left edge
+   context.lineTo(x, y + height);
+
+   // bottom right edge
+   context.lineTo(x + width / 2, y + height / 2);
+
+   // closing the path automatically creates
+   // the top right edge
+   context.closePath();
+
+   context.fillStyle = "red";
+   context.fill();
+   context.restore();
+ }
+
+//drawDiamond function draws the shape of the diamond
+ var drawDiamond = function(context, x, y, width, height) {
+   context.save();
+   context.beginPath();
+   context.moveTo(x, y);
+
+   // top left edge
+   context.lineTo(x - width / 2, y +  height / 2);
+
+   // bottom left edge
+   context.lineTo(x, y + height);
+
+   // bottom right edge
+   context.lineTo(x + width / 2, y + height / 2);
+
+   // closing the path automatically creates
+   // the top right edge
+   context.closePath();
+
+   context.fillStyle = "black";
+   context.fill();
+   context.restore();
+ }
+
+//drawRedDiamond is called when the laser gets to the diamond, and turns it red.
+ var drawRedDiamond = function(context, x, y, width, height) {
+   context.save();
+   context.beginPath();
+   context.moveTo(x, y);
+
+   // top left edge
+   context.lineTo(x - width / 2, y +  height / 2);
+
+   // bottom left edge
+   context.lineTo(x, y + height);
+
+   // bottom right edge
+   context.lineTo(x + width / 2, y + height / 2);
+
+   // closing the path automatically creates
+   // the top right edge
+   context.closePath();
+
+   context.fillStyle = "red";
+   context.fill();
+   context.restore();
+ }
+
+
+//rotateMirror function draws a different mirror based on var rotation of the clicked on object.
+function rotateMirror (i, j, mirror) {
+
+    x = i * 100;
+    y = j * 100;
+
+    if(mirror.rotation === 0) {
+        context.beginPath();
+        context.moveTo(x + 10 , y + 10);
+        context.lineTo(x + 90, y + 90);
+        context.lineTo(x + 10, y + 90);
+        context.fillStyle = "white"
+        context.fill();
+        // update rotation
+        //mirror.rotation = 1;
+    }
+    else if(mirror.rotation === 1) {
+        context.beginPath();
+        context.moveTo(x + 10, y + 90);
+        context.lineTo(x + 90, y + 10);
+        context.lineTo(x + 90, y + 90);
+        context.fillStyle = "white"
+        context.fill();
+        // update rotation
+        //mirror.rotation = 2;
+    }
+    else if(mirror.rotation === 2) {
+        context.beginPath();
+        context.moveTo(x + 90, y + 90);
+        context.lineTo(x + 90, y + 10);
+        context.lineTo(x + 10, y + 10);
+        context.fillStyle = "white"
+        context.fill();
+        //mirror.rotation = 3;
+    }
+    else if(mirror.rotation === 3) {
+        context.beginPath();
+        context.moveTo(x + 90, y + 10);
+        context.lineTo(x + 10, y + 90);
+        context.lineTo(x + 10, y + 10);
+        context.fillStyle = "white"
+        context.fill();
+        //mirror.rotation = 0;
+    }
+}
+
+//function draws the different levels by placing blocks on the board and then calls draw grid.
+function drawGridMedium() {
+    for (var i = 0; i < 5; i++) {
+        for (var j = 0; j < 5; j++) {
+            board[i][j] = 0;
+        }
+    }
+
+    board[4][2] = objects[2];
+    board[1][0] = objects[2];
+    board[0][4] = objects[2];
+    board[0][2] = objects[2];
+    board[4][4] = objects[5];
+    board[0][0] = objects[0];
+    drawGrid(500, 500);
+}
+
+function drawGridEasy() {
+    for (var i = 0; i < 5; i++) {
+        for (var j = 0; j < 5; j++) {
+            board[i][j] = 0;
+        }
+    }
+
+    board[4][4] = objects[5];
+    board[0][0] = objects[0];
+    board[1][0] = objects[2];
+    drawGrid(500,500);
+}
+
+function drawGridHard() {
+    for (var i = 0; i < 5; i++) {
+        for (var j = 0; j < 5; j++) {
+            board[i][j] = 0;
+        }
+    }
+
+    board[4][4] = objects[5];
+    board[0][0] = objects[0];
+    board[2][0] = objects[2];
+    board[4][0] = objects[2];
+    board[0][1] = objects[2];
+    board[3][3] = objects[2];
+    board[1][3] = objects[2];
+    board[2][4] = objects[3];
+    board[1][2] = objects[3];
+    board[2][1] = objects[2];
+
+
+    drawGrid(500,500);
+}
+
+//function is called when the radio button "delete" is selected and user clicks
+//on a square that contains a mirror object.
+function deleteMirror(i, j) {
+        context.save();
+        x = i * 100;
+        y = j * 100;
+
+        context.moveTo(x, y);
+        context.beginPath();
+        context.lineTo(x + 100, y);
+        context.lineTo(x + 100, y + 100);
+        context.lineTo(x, y + 100);
+        context.closePath();
+        context.restore();
+}
+
+    function drawLaser(i, j, mirror) {
+    var laserDirection = 3;
+    context.strokeStyle = '#FF0000';
+    context.moveTo(450,450);
+    context.BeginPath();
+    context.lineTo(400,450);
+    x = i + 50;
+    y = j + 50;
+
+
+    if (board[i][j].type == 'mirror1' && mirror.rotation == 0 && laserDirection == 3) {
+    context.strokeStyle = '#FF0000';
+    context.moveTo(x, y);
+    context.BeginPath();
+    context.lineTo(x + 50, y);
+    context.fillStyle = "grey";
+    context.fill();
+
+    }
+
+ }
+
+ //draws the block shape wherever a block object is located on the board array
+ function drawBlock(i, j) {
+
+    x = i * 100;
+    y = j * 100;
+    context.save();
+
+    //Draw the square
+    context.beginPath();
+    context.moveTo(x + 10, y + 10);
+    context.lineTo(x + 90, y + 10);
+    context.lineTo(x + 90, y + 90);
+    context.lineTo(x + 10, y + 90);
+    context.closePath();
+
+    //Coloring the Block
+    context.fillStyle = "black";
+    context.fill();
+    context.restore();
+ }
+
+//mouseuplistener function waits is called whenever there is a mouse click.
+ function mouseuplistener(event) {
+    var x = (event.pageX) - canvas.offsetLeft - canvas.scrollLeft;
+    var y = (event.pageY) - canvas.offsetTop - canvas.scrollTop;
+
+    var i = Math.floor(x / boxWidth);
+    var j = Math.floor(y / boxHeight);
+    console.log("i = " + i + ", j = " + j)
+
+    for (r = 0, length = radios.length; r < length; r++) {
+        if (radios[0].checked) {
+            state = 0;
+            break;
+        }
+        else if (radios[1].checked) {
+            state = 1;
+            break;
+        }
+        else if (radios[2].checked) {
+            state = 2;
+            break;
+        }
+ }
+
+        //if statements for each of the radio buttons to change the state to allow different options
+    if (state == 0 && board[i][j] == 0) { // does user want to add mirrors?
+
+        board[i][j] = {type: "mirror1", rotation: 0};
+        //drawLaser(i, j, board[i][j];
+    }
+    else if (state == 1) {
+        if (board[i][j].type == 'mirror1' || board[i][j].type == 'mirror2') {
+            var rot = board[i][j].rotation;
+
+            rot++;
+            rot = rot % 4;
+            board[i][j].rotation = rot;
+        }
+    }
+    else if (state == 2) {
+        if(board[i][j].type == 'circle' || board[i][j].type == 'block' || board[i][j].type == 'diamond' || board[i][j].type == 'mirror2' || board[i][j].type == 'diamond') {
+        }
+        else {board[i][j] = 0; }
+
+    }
+
+    drawGrid(500, 500);
+    //add selector button to add, delete, or rotate mirror
+    //random blocks or place for level
+
+ }
+
+
+</script>
+
+
+</html>
